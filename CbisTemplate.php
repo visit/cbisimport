@@ -175,6 +175,12 @@ class CbisTemplate {
     $attributes = array();
     foreach ($attributeData as $attribute) {
       $def = $this->attributes[$attribute->AttributeId];
+
+      // Copytext, not in CBIS template. THIS IS A HACK -DA
+      if($attribute->AttributeId == 274) {
+        $def->AttributeSystemName = 'Copytext';
+      }
+
       if ($def) {
         switch ($attribute->MetaType) {
           case 'Media':
