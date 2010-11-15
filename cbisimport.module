@@ -670,7 +670,6 @@ function cbisimport_product_recieved($product) {
     $info->current['occasions'] = cbisimport_product_occasions($product['Id']);
   }
 
-  error_log(var_export($info->product['LanguageId'], TRUE));
   // add fields that only exist in swedish to other languages
   if($info->product['LanguageId'] != 1) {
     $fields = array(
