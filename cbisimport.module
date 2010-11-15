@@ -669,6 +669,16 @@ function cbisimport_product_recieved($product) {
     }
     $info->current['occasions'] = cbisimport_product_occasions($product['Id']);
   }
+
+  error_log(var_export($info->product['LanguageId'], TRUE));
+  // add fields that only exist in swedish to other languages
+  if($info->product['LanguageId'] != 1) {
+    $fields = array(
+      'website',
+    );
+    _cbisimport_check_and_add_parent_field($info->product, $fields);
+  }
+
   module_invoke_all('cbisimport_saving_product', $info);
   cbisimport_product_write($product, $info->current);
 }
@@ -751,6 +761,14 @@ function cbisimport_product_write($product, $update=FALSE) {
       module_invoke_all('cbisimport_updating_occasion', $record, $product);
       drupal_write_record('cbisimport_product_occasion', $record, array('oid'));
     }
+  }
+}
+
+function _cbisimport_check_and_add_parent_field(&$product, $fields) {
+  $data = db_fetch_object(db_query('SELECT data FROM {cbisimport_product} WHERE language = 1 AND pid = '.$product['Id']));
+  $parent = unserialize($data->data);
+  foreach($fields as $field) {
+    $product['Attributes'][$field] = $parent['Attributes'][$field];
   }
 }
 
