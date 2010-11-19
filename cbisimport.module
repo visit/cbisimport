@@ -177,7 +177,7 @@ function cbisimport_cron($debug=FALSE) {
         $product = CbisTemplate::sanitize(cbisimport_get_product($qi['pid'], array(
           'languageId' => $language,
         )));
-        if ($product && !empty($product['Name'])) {
+        if ($product && !empty($product['Name']) && $product['Status'] == 'Active') {
           if (!$import) {
             // The import can only be false on first language iteration.
             foreach (cbisimport_array($product['Categories']->Category) as $category) {
@@ -707,7 +707,7 @@ function cbisimport_product_occasions($id) {
  * @param bool $update
  * @return void
  */
-function cbisimport_product_write($product, $update=FALSE) {
+function cbisimport_product_write($product, $update = FALSE) {
   $entry = array(
     'pid' => $product['Id'],
     'language' => $product['LanguageId'],
@@ -843,7 +843,19 @@ function cbisimport_expand_occasion($occasion) {
  * @author Hugo Wetterberg
  */
 function cbisimport_mapping_exists($info, $oid = 0, $subid = 0) {
-  return isset($info->mappings[$oid][$subid]) ? $info->mappings[$oid][$subid] : 0;
+  $nid = $info->mappings[$oid][$subid] ? $info->mappings[$oid][$subid] : FALSE;
+  $lang = $info->product['LanguageId'];
+  if($nid) {
+    $res = db_result(db_query('SELECT * FROM {node} WHERE nid = %d', array(':nid' => $nid)));
+    if($res == FALSE) {
+      db_query('DELETE FROM {cbisimport_product_node} WHERE nid = %d AND language = %d', array(':nid' => $nid, ':language' => $lang));
+    } else {
+      $value = $nid;
+    }
+  } else {
+    $value = 0;
+  }
+  return $value;
 }
 
 /**
