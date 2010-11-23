@@ -44,6 +44,15 @@ function cbisimport_available_languages() {
     CBIS_LANGUAGE_DE, CBIS_LANGUAGE_DA);
 }
 
+function cbisimport_nodeapi(&$node, $op, $a3 = NULL, $page = NULL) {
+  $p = db_fetch_object(db_query('SELECT pid, language FROM cbisimport_product_node WHERE nid = %d', array(':nid' => $node->nid)));
+  switch ($op) {
+    case 'delete':
+      cbisimport_mapping_remove($p->pid, $p->language, $oid = 0, $subid = 0);
+      break;
+  }
+}
+
 /**
  * Implementation of hook_menu().
  */
@@ -844,11 +853,10 @@ function cbisimport_expand_occasion($occasion) {
  */
 function cbisimport_mapping_exists($info, $oid = 0, $subid = 0) {
   $nid = $info->mappings[$oid][$subid] ? $info->mappings[$oid][$subid] : FALSE;
-  $lang = $info->product['LanguageId'];
   if($nid) {
     $res = db_result(db_query('SELECT * FROM {node} WHERE nid = %d', array(':nid' => $nid)));
     if($res == FALSE) {
-      db_query('DELETE FROM {cbisimport_product_node} WHERE nid = %d AND language = %d', array(':nid' => $nid, ':language' => $lang));
+      cbisimport_mapping_remove($info->product['Id'], $info->product['LanguageId'], $oid, $subid);
     } else {
       $value = $nid;
     }
