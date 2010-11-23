@@ -10,6 +10,8 @@ $adr_props = array(
   'extended-address' => 'StreetAddress2',
   'postal-code' => 'postalCode',
   'locality' => 'cityAddress',
+  'email' => 'contactPersonEmail',
+  'phone' => 'phoneNumberString',
 );
 $address = '';
 foreach ($adr_props as $key => $value) {
