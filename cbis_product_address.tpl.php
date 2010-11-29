@@ -10,8 +10,6 @@ $adr_props = array(
   'extended-address' => 'StreetAddress2',
   'postal-code' => 'postalCode',
   'locality' => 'cityAddress',
-  'email' => 'contactPersonEmail',
-  'phone' => 'phoneNumberString',
 );
 $address = '';
 foreach ($adr_props as $key => $value) {
@@ -21,6 +19,10 @@ foreach ($adr_props as $key => $value) {
 }
 
 ?>
+<?php if($attributes['arena']) : ?>
+  <div class="arena-name"><?php print $attributes['arena']; ?></div>
+<?php endif; ?>
+
 <?php if (!empty($address)): ?>
   <div class="adr">
     <?php print $address ?>

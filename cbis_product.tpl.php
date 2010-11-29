@@ -3,6 +3,15 @@
 
 $attr = $product['Attributes'];
 
+$arenas = $product['Occasions'];
+foreach($arenas as $arena) {
+  $arena_name = $arena->ArenaName;
+  if($arena_name) {
+    $attr['arena'] = $arena_name;
+    break;
+  }
+}
+
 $links = array();
 if (!empty($attr['email'])) {
   $links['email'] = array(
