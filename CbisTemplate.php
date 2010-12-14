@@ -129,8 +129,8 @@ class CbisTemplate {
           $value = array();
           foreach ($occasions as $occasion) {
             $o = strtotime('0001-01-01T00:00:00');
-            $occasion->StartDate = strtotime($occasion->StartDate);
-            $occasion->EndDate = strtotime($occasion->EndDate);
+            $occasion->StartDate = $this->normalizeDate($occasion->StartDate);
+            $occasion->EndDate = $this->normalizeDate($occasion->EndDate);
             $occasion->StartTime = $this->getTimeOffset($occasion->StartTime);
             $occasion->EndTime = $this->getTimeOffset($occasion->EndTime);
             $occasion->EntryTime = strtotime($occasion->EntryTime);
@@ -155,6 +155,16 @@ class CbisTemplate {
     $sane['TemplateParents'] = $this->parents;
     
     return $sane;
+  }
+
+ /**
+  * Add timezone and DST
+  * 3600 is the timezone offset in sweden. Don't use date('Z'), it will mess up the the time because of DST
+  */
+  private function normalizeDate($date) {
+    $n_date = strtotime($date) + date('Z', $date);
+    $n_date += date('I', $n_date) * 3600;
+    return $n_date;
   }
 
   private function getTimeOffset($isotime) {

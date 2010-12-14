@@ -734,7 +734,7 @@ function cbisimport_product_write($product, $update = FALSE) {
     $update = array();
     $add = array();
     foreach (array_keys($occasions) as $id) {
-      if (!isset($product['Occasions'][$id])) {
+      if (!isset($product['Occasions'][$id]) || $product['Occasions'][$id]->EndDate < strtotime('+1 day')) {
         $delete[] = $id;
         module_invoke_all('cbisimport_deleting_occasion', $occasions[$id], $product);
       }
@@ -820,7 +820,7 @@ function cbisimport_expand_occasion($occasion) {
     $days[$daymap[strtolower($day)]] = TRUE;
   }
 
-  $today = strtotime(date('Y-m-d\T00:00P'));
+  $today = strtotime(date('Y-m-d\T00:00P')) + date('Z');
   $day = $r['start_date'];
   while ($day <= $r['end_date'] && count($occasions) < 100) {
     // Make sure that the day timestamp is set to 00:00 hours
