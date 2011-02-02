@@ -728,13 +728,13 @@ function cbisimport_product_write($product, $update = FALSE) {
   drupal_write_record('cbisimport_product', $entry, $update ? array('pid', 'language') : array());
 
   // Letting the swedish language version take responsibility for occasions.
-  if ($product['LanguageId'] == CBIS_LANGUAGE_SV) {
+  if ($product['LanguageId'] == CBIS_LANGUAGE_SV && $product['TemplateId'] == 81) {
     $occasions = cbisimport_product_occasions($product['Id']);
     $delete = array();
     $update = array();
     $add = array();
     foreach (array_keys($occasions) as $id) {
-      if (!isset($product['Occasions'][$id]) || $product['Occasions'][$id]->EndDate < strtotime('+1 day')) {
+      if (!isset($product['Occasions'][$id])) {
         $delete[] = $id;
         module_invoke_all('cbisimport_deleting_occasion', $occasions[$id], $product);
       }
