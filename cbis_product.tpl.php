@@ -35,6 +35,10 @@ if (!empty($attr['website'])) {
   );
 }
 
-print $attr['Description'];
+if(!empty($attr['Copytext'])) {
+  print $attr['Copytext'];
+} else {
+  print $attr['Description'];
+}
 print theme('links', $links);
 print theme('cbis_product_address', $attr);
