@@ -31,6 +31,9 @@ class CbisClient extends SoapClient {
     $result = NULL;
     try {
       $result = parent::__call($method, $arguments);
+
+      // Log the raw xml from CBIS in our transaction
+      CbisTransaction::getCurrentTransaction()->addState('raw_xml.xml', parent::__getLastResponse());
     } catch (Exception $e) {
       drupal_set_message(t('Failed to access CBIS: @message', array(
         '@message' => $e->getMessage(),

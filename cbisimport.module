@@ -111,8 +111,9 @@ function cbisimport_menu() {
  */
 function cbisimport_autoload_info() {
   return array(
-    'CbisClient' => array('file' => 'CbisClient.php'),
-    'CbisTemplate' => array('file' => 'CbisTemplate.php'),
+    'CbisClient'      => array('file' => 'CbisClient.php'),
+    'CbisTemplate'    => array('file' => 'CbisTemplate.php'),
+    'CbisTransaction' => array('file' => 'CbisTransaction.php'),
   );
 }
 
@@ -151,7 +152,7 @@ function cbisimport_trigger_import_page() {
 /**
  * Implementation of hook_cron().
  */
-function cbisimport_cron($debug=FALSE) {
+function cbisimport_cron($debug = FALSE) {
   $output = $debug ? '' : NULL;
 
   $last_update = variable_get('cbisimport_last_update_check', 0);
@@ -174,19 +175,44 @@ function cbisimport_cron($debug=FALSE) {
     variable_set('cbisimport_last_updated', $last_update);
   }
   else {
+    // Update transactions create last cron with accurate node-data
+    // This can't be done during the previous transaction due to
+    // Drupal's cache funkyness.
+    // $res = db_query_range("SELECT * FROM {cbisimport_transactions} WHERE has_load_state=0");
+    // while ($t = db_fetch_array($res)) {
+    //   $node = node_load($t['nid']);
+    //   // Ladda index
+    //   // Lägga till state
+    //   // Skriva state till fil
+    //   // Spara index
+    // })
+
     $res = db_query_range("SELECT * FROM {cbisimport_queue} WHERE fail_count=0", 0, 10);
     $success = array();
     $fail = array();
     while ($qi = db_fetch_array($res)) {
+
       $languages = cbisimport_available_languages();
 
       $import = FALSE;
       $fine = TRUE;
       foreach ($languages as $language) {
-        $product = CbisTemplate::sanitize(cbisimport_get_product($qi['pid'], array(
+        // Begin a new transaction
+        $transaction = new CbisTransaction($qi['pid'], $qi['updated'], $language);
+        CbisTransaction::setCurrentTransaction($transaction);
+
+        // Load raw data and log transaction state
+        $raw_data = cbisimport_get_product($qi['pid'], array(
           'languageId' => $language,
-        )));
-        if ($product && !empty($product['Name']) && $product['Status'] == 'Active') {
+        ));
+        $transaction->addState('raw_data', $raw_data);
+
+        // Sanitize data and log new state
+        $product = CbisTemplate::sanitize($raw_data);
+        $transaction->addState('sanitized_data', $product);
+
+        // Product found
+        if ($product && !empty($product['Name'])) {
           if (!$import) {
             // The import can only be false on first language iteration.
             foreach (cbisimport_array($product['Categories']->Category) as $category) {
@@ -194,8 +220,13 @@ function cbisimport_cron($debug=FALSE) {
               $import = $import || cbisimport_should_import_category($category);
             }
           }
-          // Break the language loop is the product shouldn't be imported.
+          // Break the language loop if the product shouldn't be imported.
           if (!$import) {
+            // Log abort state and persist
+            $transaction->addState('aborted.json', array(
+              'error' => 'Product not imported due to category missmatch',
+            ));
+            $transaction->persist();
             break;
           }
           if ($debug) {
@@ -204,6 +235,10 @@ function cbisimport_cron($debug=FALSE) {
           cbisimport_product_recieved($product);
         }
         else {
+          // Product not found, log state, persist, and continue
+          $transaction->addState('aborted.json', array(
+            'error' => 'Product not found or recieved from CBIS.'
+          ));
           $fine = FALSE;
         }
       }
@@ -716,7 +751,7 @@ function cbisimport_product_occasions($id) {
  * @param bool $update
  * @return void
  */
-function cbisimport_product_write($product, $update = FALSE) {
+function cbisimport_product_write($product, $update=FALSE) {
   $entry = array(
     'pid' => $product['Id'],
     'language' => $product['LanguageId'],
