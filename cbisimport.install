@@ -41,6 +41,49 @@ function cbisimport_schema() {
     ),
   );
 
+  $schema['cbisimport_transactions'] = array(
+    'description' => 'CBIS import transactions',
+    'fields' => array(
+      'id' => array(
+        'description' => t('The primary identifier for a transaction.'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'pid' => array(
+        'description' => t('The primary identifier for a product.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'language' => array(
+        'description' => t('The number of times that fetching has failed.'),
+        'type' => 'varchar',
+        'length' => 2,
+        'not null' => TRUE,
+        'default' => 'sv',
+      ),
+      'timestamp' => array(
+        'description' => t('Timestamp for the product modification date.'),
+        'type' => 'int',
+        'size' => 'normal',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'has_load_state' => array(
+        'description' => t('Wether or not this transaction has a node_load state.'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array(
+      'has_load_state' => array('pid', 'has_load_state'),
+    ),
+  );
+
   $schema['cbisimport_product'] = array(
     'description' => 'Stores products from CBIS',
     'fields' => array(
@@ -233,6 +276,56 @@ function cbisimport_update_6001() {
       ),
     ),
     'primary key' => array('language'),
+  ));
+
+  return $ret;
+}
+
+function cbisimport_update_6002() {
+  $ret = array();
+
+  db_create_table($ret, 'cbisimport_transactions', array(
+    'description' => 'CBIS import transactions',
+    'fields' => array(
+      'id' => array(
+        'description' => t('The primary identifier for a transaction.'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'pid' => array(
+        'description' => t('The primary identifier for a product.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'language' => array(
+        'description' => t('The number of times that fetching has failed.'),
+        'type' => 'varchar',
+        'length' => 2,
+        'not null' => TRUE,
+        'default' => 'sv',
+      ),
+      'timestamp' => array(
+        'description' => t('Timestamp for the product modification date.'),
+        'type' => 'int',
+        'size' => 'normal',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'has_load_state' => array(
+        'description' => t('Wether or not this transaction has a node_load state.'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array(
+      'has_load_state' => array('pid', 'has_load_state'),
+    ),
   ));
 
   return $ret;
