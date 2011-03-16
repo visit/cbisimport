@@ -175,23 +175,42 @@ function cbisimport_cron($debug = FALSE) {
     variable_set('cbisimport_last_updated', $last_update);
   }
   else {
-    // Update transactions create last cron with accurate node-data
-    // This can't be done during the previous transaction due to
+    // Update transactions created last cron with accurate node-data
+    // This can't be done during the previous cron due to
     // Drupal's cache funkyness.
-    // $res = db_query_range("SELECT * FROM {cbisimport_transactions} WHERE has_load_state=0");
-    // while ($t = db_fetch_array($res)) {
-    //   $node = node_load($t['nid']);
-    //   // Ladda index
-    //   // Lägga till state
-    //   // Skriva state till fil
-    //   // Spara index
-    // })
+    $res = db_query_range("SELECT * FROM {cbisimport_transactions} WHERE has_load_state = 0", 0, 50);
+    while ($t = db_fetch_array($res)) {
+      // Load old transaction and restore states
+      try {
+        $transaction = CbisTransaction::loadTransaction($t['id']);
+        $nid = db_result(db_query("SELECT nid FROM {cbisimport_product_node} WHERE pid = %d AND language = %d", $t['pid'], $t['language']));
 
+        // Load products id
+        if ($nid) {
+          $node = node_load($nid);
+          if ($node) {
+            // Add loaded node state and persist
+            $transaction->addState('node.json', $node);
+            $transaction->setHasLoadState(TRUE);
+          } else {
+            $transaction->addState('fail.json', array('error' => 'Failed to load node ' . $nid));
+          }
+        } else {
+          $transaction->addState('fail.json', array('error' => 'No node with nid ' . $nid));
+        }
+
+        $transaction->persist();
+        CbisTransaction::releaseCurrentTransaction();
+      } catch (Exception $e) {
+        // TODO: Useful logging
+      }
+    }
+
+    // Load queue and import products
     $res = db_query_range("SELECT * FROM {cbisimport_queue} WHERE fail_count=0", 0, 10);
     $success = array();
     $fail = array();
     while ($qi = db_fetch_array($res)) {
-
       $languages = cbisimport_available_languages();
 
       $import = FALSE;
@@ -205,11 +224,11 @@ function cbisimport_cron($debug = FALSE) {
         $raw_data = cbisimport_get_product($qi['pid'], array(
           'languageId' => $language,
         ));
-        $transaction->addState('raw_data', $raw_data);
+        $transaction->addState('raw_data.json', $raw_data);
 
         // Sanitize data and log new state
         $product = CbisTemplate::sanitize($raw_data);
-        $transaction->addState('sanitized_data', $product);
+        $transaction->addState('sanitized_data.json', $product);
 
         // Product found
         if ($product && !empty($product['Name'])) {
@@ -692,6 +711,7 @@ function cbisimport_product_recieved($product) {
   );
   $info->product = $product;
 
+  // Squeeze some sensible information out of the occasions
   foreach ($product['Occasions'] as $o) {
     $o->Expanded = cbisimport_expand_occasion($o);
   }
@@ -805,6 +825,12 @@ function cbisimport_product_write($product, $update=FALSE) {
       drupal_write_record('cbisimport_product_occasion', $record, array('oid'));
     }
   }
+
+  // Add saved product to transaction and persist it (this is called from
+  // the end of our import while-loop)
+  CbisTransaction::getCurrentTransaction()
+    ->addState('saved_product.json', $product)
+    ->persist();
 }
 
 function _cbisimport_check_and_add_parent_field(&$product, $fields) {

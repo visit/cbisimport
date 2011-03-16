@@ -20,6 +20,8 @@ class CbisTransaction {
   private $path;
   private $nid;
   private $transaction_started;
+  private $transaction_id;          // From database
+  private $has_load_state;
 
   /**
    * Returns the current transaction
@@ -48,6 +50,13 @@ class CbisTransaction {
   }
 
   /**
+   * Release the current transaction
+   */
+  public static function releaseCurrentTransaction() {
+    self::$current_transaction = NULL;
+  }
+
+  /**
    * Constructs a new transaction object with data from an old transaction
    *
    * Used to update a transaction with a valid node state
@@ -60,7 +69,7 @@ class CbisTransaction {
    */
   public static function loadTransaction($tid) {
     $record = db_query(
-      "SELECT * FROM {cbis_transactions} WHERE tid = %d",
+      "SELECT * FROM {cbisimport_transactions} WHERE id = %d",
       array(':tid' => $tid)
     );
 
@@ -74,6 +83,8 @@ class CbisTransaction {
       );
 
       // Set other data not possible through constructor
+      $transaction->setTransactionId($tid);
+      $transaction->restoreStates();
 
       // Set our transaction to the current one and return it
       CbisTransaction::setCurrentTransaction($transaction);
@@ -116,13 +127,19 @@ class CbisTransaction {
    *   A name for the transaction, will be used as the filename etc.
    * @param $state
    *   The state to save
+   * @return this
+   *   Allows method chaining
    */
   public function addState($name, $state) {
+    $this->states[] = $name;
+
     if (!is_string($serialize)) {
       $state = json_encode($state);
     }
-    file_put_contents("{$this->path}/{$name}", $state);
-    $this->states[] = $name;
+    $nr_states = count($this->states);
+    file_put_contents("{$this->path}/{$nr_states}-{$name}", $state);
+
+    return $this;
   }
 
   /**
@@ -136,20 +153,91 @@ class CbisTransaction {
   }
 
   /**
-   * Saves the transaction to disk and logs a transaction record in the database
+   * Set the transaction id
    *
+   * @param $id
    * @return void
    */
-  public function persist() {
+  public function setTransactionId($id) {
+    $this->transaction_id = $id;
+  }
+
+  /**
+   * Update load status
+   *
+   * @param $has_load_state
+   * @return void
+   */
+  public function setHasLoadState($has_load_state) {
+    $this->has_load_state = (bool) $has_load_state;
+  }
+
+  /**
+   * Restore a states from disk
+   *
+   * @return $path
+   */
+  public function restoreStates() {
+    try {
+      $states = array();
+      $di = new DirectoryIterator(realpath(getcwd() . '/' . $this->path));
+      foreach ($di as $file) {
+        if ($file->isFile() && strpos($file->getFilename(), 'index.json') === FALSE) {
+          $parts = explode('-', $file->getFilename());
+          $number = array_shift($parts);
+          $state_name = join('-', $parts);
+          $states[$number] = $state_name;
+        }
+      }
+      // Make sure states are loaded in correct order..
+    } catch (Exception $e) {
+      // TODO: Do some useful logging or something
+    }
+  }
+
+  /**
+   * Writes transaction information to index file
+   *
+   * @access private
+   * @return void
+   */
+  private function writeIndex() {
     $index = array(
       'id' => $this->id,
       'nid' => $this->nid,
       'time' => $this->time,
       'language' => $this->language,
       'transaction_started' => $this->transaction_started,
-      'transaction_finished' => time(),
       'states' => $this->states,
+      'has_load_state' => $this->has_load_state,
     );
-    file_put_contents("{$this->path}/index.json", json_encode($index));
+    file_put_contents("{$this->path}/0-index.json", json_encode($index));
+  }
+
+  /**
+   * Saves the transaction to disk and logs a transaction record in the database
+   * Or updates an already logged transaction.
+   *
+   * @return void
+   */
+  public function persist() {
+    $this->writeIndex();
+
+    // Save database record of this transaction
+    $record = (object) array(
+      'pid' => $this->id,
+      'language' => $this->language,
+      'timestamp' => $this->time,
+      'has_load_state' => (int) $this->has_load_state
+    );
+
+    if ($this->transaction_id) {
+      $update = array('id');
+      $record->id = $this->transaction_id;
+    } else {
+      $update = array();
+    }
+
+    drupal_write_record('cbisimport_transactions', $record, $update);
   }
 }
