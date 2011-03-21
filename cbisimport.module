@@ -782,8 +782,10 @@ function cbisimport_product_write($product, $update=FALSE) {
   );
   drupal_write_record('cbisimport_product', $entry, $update ? array('pid', 'language') : array());
 
+  // All template id's with occasions (I think)
+  $template_ids = array(76, 81, 91, 105);
   // Letting the swedish language version take responsibility for occasions.
-  if ($product['LanguageId'] == CBIS_LANGUAGE_SV && $product['TemplateId'] == 81) {
+  if ($product['LanguageId'] == CBIS_LANGUAGE_SV && in_array($product['TemplateId'], $template_ids)) {
     $occasions = cbisimport_product_occasions($product['Id']);
     $delete = array();
     $update = array();
