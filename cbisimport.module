@@ -231,7 +231,7 @@ function cbisimport_cron($debug = FALSE) {
         $transaction->addState('sanitized_data.json', $product);
 
         // Product found
-        if ($product && !empty($product['Name'])) {
+        if ($product && !empty($product['Name']) && $product['Status'] == 'Active') {
           if (!$import) {
             // The import can only be false on first language iteration.
             foreach (cbisimport_array($product['Categories']->Category) as $category) {
@@ -253,10 +253,25 @@ function cbisimport_cron($debug = FALSE) {
           }
           cbisimport_product_recieved($product);
         }
+        // Old product, unpublish it
+        else if ($product['Status'] !== 'Active') {
+          $nid = cbisimport_mapping_exists($product);
+          if ($nid) {
+            module_invoke('cbisimport_unpublishing_product', $product, $nid);
+            $transaction->addState('product-inactive.json', array(
+              'message' => 'Unpublishing product',
+            ));
+          }
+          else {
+            $transaction->addState('product-inactive-no-mapping.json', array(
+              'error' => 'Product inactive and no mapping found.',
+            ));
+          }
+        }
         else {
           // Product not found, log state, persist, and continue
           $transaction->addState('aborted.json', array(
-            'error' => 'Product not found or recieved from CBIS.'
+            'error' => 'Product not found or recieved from CBIS.',
           ));
           $fine = FALSE;
         }
@@ -972,4 +987,20 @@ function cbisimport_mapping_remove($pid, $language, $oid = 0, $subid = 0) {
       ':oid' => $oid,
       ':subid' => $subid,
     ));
+}
+
+/**
+ * Implementation of hook_cbisnode_node_delete().
+ */
+function cbisimport_cbisnode_node_delete($old) {
+  // Clean up product data when a node is deleted
+  // TODO: Should we log this as a transaction?
+  db_query("DELETE FROM {cbisimport_product} WHERE pid = %d", $old->pid);
+  db_query("DELETE FROM {cbisimport_product_node} WHERE pid = %d AND nid = %d",
+    array(
+      ':pid' => $old->pid,
+      ':nid' => $old->nid,
+    )
+  );
+  db_query("DELETE FROM {cbisimport_queue} WHERE pid = %d", $old->pid);
 }
