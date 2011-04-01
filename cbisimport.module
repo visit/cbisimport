@@ -5,7 +5,7 @@ define('CBIS_LANGUAGE_SV', 1);
 define('CBIS_LANGUAGE_EN', 2);
 define('CBIS_LANGUAGE_DE', 3);
 define('CBIS_LANGUAGE_DA', 4);
-define('CBIS_LANGUAGE_NO', 5);
+define('CBIS_LANGUAGE_NB', 5);
 define('CBIS_LANGUAGE_NL', 19);
 
 /**
@@ -37,8 +37,8 @@ function cbisimport_language_code($id) {
     case CBIS_LANGUAGE_DA:
       $code = 'da';
       break;
-    case CBIS_LANGUAGE_NO:
-      $code = 'no';
+    case CBIS_LANGUAGE_NB:
+      $code = 'nb';
       break;
     case CBIS_LANGUAGE_NL:
       $code = 'nl';
@@ -48,8 +48,11 @@ function cbisimport_language_code($id) {
 }
 
 function cbisimport_available_languages() {
-  return array(CBIS_LANGUAGE_SV, CBIS_LANGUAGE_EN,
-    CBIS_LANGUAGE_DE, CBIS_LANGUAGE_DA, CBIS_LANGUAGE_NO, CBIS_LANGUAGE_NL,);
+  return array(
+    CBIS_LANGUAGE_SV, CBIS_LANGUAGE_EN,
+    CBIS_LANGUAGE_DE, CBIS_LANGUAGE_DA,
+    CBIS_LANGUAGE_NB, CBIS_LANGUAGE_NL,
+  );
 }
 
 function cbisimport_nodeapi(&$node, $op, $a3 = NULL, $page = NULL) {
