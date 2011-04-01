@@ -223,27 +223,36 @@ function cbisnode_api_update_info($node_data, $info) {
  * Implementation of hook_cbisimport_unpublishing_product().
  */
 function cbisnode_cbisimport_unpublishing_product($product, $nid) {
-  $node = node_load($nid);
-  $node->status = 0;
-  node_save($node);
+  // $node = node_load($nid);
+  // $node->status = 0;
+  // node_save($node);
+
+  // Before running any destructive code, log this action for a while and
+  // make sure it works.
+  $path = file_directory_path() . "/cbis_unpublish_log.txt";
+  @file_put_contents(
+    $path,
+    sprintf("Unpublishing node %d, product %d", $nid, $product['Id']),
+    FILE_APPEND
+  );
 }
 
 /**
  * Implementation of hook_cron().
  */
 function cbisnode_cron() {
-  // Check for cbis nodes that have been unpublished for more then one month
-  $old_nodes = db_query_range("SELECT p.pid AS pid, p.nid AS nid FROM {cbisimport_product_node} AS p
-    INNER JOIN {node} AS n
-      ON p.nid = n.nid
-    WHERE TIMESTAMPDIFF(MONTH, FROM_UNIXTIME(n.changed), NOW()) > 1
-      AND n.status = 0
-    ORDER BY n.changed ASC", 0, variable_get('cbisnode_old_clean_limit', 5)
-  );
-
-  // Remove old nodes and tell cbisimport to do some cleanup
-  while ($old = db_fetch_object($old_nodes)) {
-    module_invoke('cbisnode_node_delete', $old);
-    node_delete($old->nid);
-  }
+  // // Check for cbis nodes that have been unpublished for more then one month
+  // $old_nodes = db_query_range("SELECT p.pid AS pid, p.nid AS nid FROM {cbisimport_product_node} AS p
+  //   INNER JOIN {node} AS n
+  //     ON p.nid = n.nid
+  //   WHERE TIMESTAMPDIFF(MONTH, FROM_UNIXTIME(n.changed), NOW()) > 1
+  //     AND n.status = 0
+  //   ORDER BY n.changed ASC", 0, variable_get('cbisnode_old_clean_limit', 5)
+  // );
+  //
+  // // Remove old nodes and tell cbisimport to do some cleanup
+  // while ($old = db_fetch_object($old_nodes)) {
+  //   module_invoke('cbisnode_node_delete', $old);
+  //   node_delete($old->nid);
+  // }
 }
