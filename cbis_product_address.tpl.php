@@ -10,6 +10,8 @@ $adr_props = array(
   'extended-address' => 'StreetAddress2',
   'postal-code' => 'postalCode',
   'locality' => 'cityAddress',
+  'email' => 'contactPersonEmail',
+  'phone' => 'phoneNumberString',
 );
 $address = '';
 foreach ($adr_props as $key => $value) {
@@ -27,4 +29,4 @@ foreach ($adr_props as $key => $value) {
   <div class="adr">
     <?php print $address ?>
   </div>
-<?php endif ?>
+<?php endif; ?>
