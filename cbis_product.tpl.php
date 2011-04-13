@@ -42,3 +42,15 @@ if(!empty($attr['Copytext'])) {
 }
 print theme('links', $links);
 print theme('cbis_product_address', $attr);
+
+if ($attr['Latitude'] && $attr['Longitude']) {
+  // Could've made this microformats.. but that would require additional
+  // stylesheet changes. Besides, Simple Geo already prints microformat tags.
+  print '<div id="coordinates">';
+  printf('<strong>%s:</strong> <span class="latitude">%s</span> <span class="longitude">%s</span>',
+    t('Coordinates'),
+    $attr['Latitude'],
+    $attr['Longitude']
+  );
+  print '</div>';
+}
