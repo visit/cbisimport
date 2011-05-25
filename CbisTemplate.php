@@ -217,6 +217,9 @@ class CbisTemplate {
             }
             break;
         }
+				if (isset($attribute->Language)) {
+					$attributes['_language'][$def->AttributeSystemName] = $attribute->Language;
+				}
       }
       else {
         $attributes['_unknown'][] = $attribute;

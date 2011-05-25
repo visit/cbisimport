@@ -222,19 +222,16 @@ function cbisnode_api_update_info($node_data, $info) {
 /**
  * Implementation of hook_cbisimport_unpublishing_product().
  */
-function cbisnode_cbisimport_unpublishing_product($product, $nid) {
-  // $node = node_load($nid);
-  // $node->status = 0;
-  // node_save($node);
-
-  // Before running any destructive code, log this action for a while and
-  // make sure it works.
-  $path = file_directory_path() . "/cbis_unpublish_log.txt";
-  @file_put_contents(
-    $path,
-    sprintf("Unpublishing node %d, product %d", $nid, $product['Id']),
-    FILE_APPEND
-  );
+function cbisnode_cbisimport_unpublishing_product($product_id) {
+  // Unpublish all nodes mapped to the product.
+	$res = db_query("SELECT nid FROM {cbisimport_product_node} WHERE pid = %d", array(
+		':pid' => $product_id,
+	));
+	while ($map = db_fetch_object($res)) {
+		$node = node_load($map->nid);
+	  $node->status = 0;
+	  node_save($node);
+	}
 }
 
 /**

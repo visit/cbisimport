@@ -15,7 +15,6 @@ function cbisimport_perm() {
   return array('administer cbis import');
 }
 
-
 /**
  * Returns the language code for a cbis language id.
  *
@@ -173,16 +172,32 @@ function cbisimport_cron($debug = FALSE) {
     }
     variable_set('cbisimport_last_update_check', time());
 
+		// Get all our known activt products and place them in the archived array.
+		// All products with an update status will be removed and the
+		// remaining products will be the actual archived products.
+		$res = db_query("SELECT DISTINCT(pid) FROM {cbisimport_product} WHERE archived = 0");
+		$archived_products = array();
+		while ($prod = db_fetch_object($res)) {
+			$archived_products[$prod->pid] = TRUE;
+		}
+
     $update_status = cbisimport_product_update_status();
     $updates = array();
     $since = $last_update = variable_get('cbisimport_last_updated', 0);
     foreach ($update_status as $id => $updated) {
+			unset($archived_products[$id]);
       if ($updated > $since) {
         $last_update = max($updated, $last_update);
         $updates[$id] = $updated;
         cbisimport_queue_update($id, $updated);
       }
     }
+
+		// Queue archive updates.
+		foreach ($archived_products as $id => $archived) {
+			cbisimport_queue_update($id, time(), TRUE);
+		}
+
     variable_set('cbisimport_last_updated', $last_update);
   }
   else {
@@ -222,77 +237,84 @@ function cbisimport_cron($debug = FALSE) {
     $success = array();
     $fail = array();
     while ($qi = db_fetch_array($res)) {
-      $languages = cbisimport_available_languages();
+			if ($qi['archive']) {
+				// Mark product as archived.
+				db_query('UPDATE {cbisimport_product} SET archived = 1 WHERE pid = %d', array(
+					':pid' => $qi['pid'],
+				));
+				module_invoke('cbisimport_unpublishing_product', $qi['pid']);
+			}
+			else {
+				$languages = cbisimport_available_languages();
 
-      $import = FALSE;
-      $fine = TRUE;
-      foreach ($languages as $language) {
-        // Begin a new transaction
-        $transaction = new CbisTransaction($qi['pid'], $qi['updated'], $language);
-        CbisTransaction::setCurrentTransaction($transaction);
+	      $import = FALSE;
+	      $fine = TRUE;
+	      foreach ($languages as $language) {
+	        // Begin a new transaction
+	        $transaction = new CbisTransaction($qi['pid'], $qi['updated'], $language);
+	        CbisTransaction::setCurrentTransaction($transaction);
 
-        // Load raw data and log transaction state
-        $raw_data = cbisimport_get_product($qi['pid'], array(
-          'languageId' => $language,
-        ));
-        $transaction->addState('raw_data.json', $raw_data);
+	        // Load raw data and log transaction state
+	        $raw_data = cbisimport_get_product($qi['pid'], array(
+	          'languageId' => $language,
+	        ));
+	        $transaction->addState('raw_data.json', $raw_data);
 
-        // Sanitize data and log new state
-        $product = CbisTemplate::sanitize($raw_data);
-        $transaction->addState('sanitized_data.json', $product);
+	        // Sanitize data and log new state
+	        $product = CbisTemplate::sanitize($raw_data);
+	        $transaction->addState('sanitized_data.json', $product);
 
-        // Product found
-        if ($product && !empty($product['Name']) && $product['Status'] == 'Active') {
-          if (!$import) {
-            // The import can only be false on first language iteration.
-            foreach (cbisimport_array($product['Categories']->Category) as $category) {
-              // If any category is a match we'll go ahead with the import.
-              $import = $import || cbisimport_should_import_category($category);
-            }
-          }
-          // Break the language loop if the product shouldn't be imported.
-          if (!$import) {
-            // Log abort state and persist
-            $transaction->addState('aborted.json', array(
-              'error' => 'Product not imported due to category missmatch',
-            ));
-            $transaction->persist();
-            break;
-          }
-          if ($debug) {
-            $output .= "{$product['Id']} " . cbisimport_language_code($language) . ": {$product['Name']} \n";
-          }
-          cbisimport_product_recieved($product);
-        }
-        // Old product, unpublish it
-        else if ($product['Status'] !== 'Active') {
-          $nid = cbisimport_mapping_exists($product);
-          if ($nid) {
-            module_invoke('cbisimport_unpublishing_product', $product, $nid);
-            $transaction->addState('product-inactive.json', array(
-              'message' => 'Unpublishing product',
-            ));
-          }
-          else {
-            $transaction->addState('product-inactive-no-mapping.json', array(
-              'error' => 'Product inactive and no mapping found.',
-            ));
-          }
-        }
-        else {
-          // Product not found, log state, persist, and continue
-          $transaction->addState('aborted.json', array(
-            'error' => 'Product not found or recieved from CBIS.',
-          ));
-          $fine = FALSE;
-        }
-      }
-      if ($fine) {
-        $success[] = $qi['pid'];
-      }
-      else {
-        $fail[] = $qi['pid'];
-      }
+	        // Product found
+	        if ($product && !empty($product['Name']) && $product['Status'] == 'Active') {
+	          if (!$import) {
+	            // The import can only be false on first language iteration.
+	            foreach (cbisimport_array($product['Categories']->Category) as $category) {
+	              // If any category is a match we'll go ahead with the import.
+	              $import = $import || cbisimport_should_import_category($category);
+	            }
+	          }
+						// Detect if the product just uses a language fallback, skip it if it does.
+						if ($import && $product['LanguageId'] !== $product['Attributes']['_language']['Name']) {
+							$output .= "Skipping language {$product['LanguageId']} for {$product['Id']}, because it's just fallback content\n";
+							continue;
+						}
+	          // Break the language loop if the product shouldn't be imported.
+	          if (!$import) {
+	            // Log abort state and persist
+	            $transaction->addState('aborted.json', array(
+	              'error' => 'Product not imported due to category mismatch or missing translation',
+	            ));
+	            $transaction->persist();
+	            break;
+	          }
+	          if ($debug) {
+	            $output .= "{$product['Id']} " . cbisimport_language_code($language) . ": {$product['Name']} \n";
+	          }
+	          cbisimport_product_recieved($product);
+	        }
+	        // Old product, unpublish it
+	        else if ($product['Status'] !== 'Active') {
+						// Mark product as archived.
+						db_query('UPDATE {cbisimport_product} SET archived = 1 WHERE pid = %d', array(
+							':pid' => $product['Id'],
+						));
+	          module_invoke('cbisimport_unpublishing_product', $product['Id']);
+	        }
+	        else {
+	          // Product not found, log state, persist, and continue
+	          $transaction->addState('aborted.json', array(
+	            'error' => 'Product not found or recieved from CBIS.',
+	          ));
+	          $fine = FALSE;
+	        }
+	      }
+	      if ($fine) {
+	        $success[] = $qi['pid'];
+	      }
+	      else {
+	        $fail[] = $qi['pid'];
+	      }
+			}
     }
     if (!empty($success)) {
       $plc = db_placeholders($success);
@@ -488,9 +510,11 @@ function cbisimport_product_update_status() {
  *
  * @param int $id
  * @param int $updated
+ * @param bool $archive
+ * 	Optional. TRUE if the product should be archived, defaults to FALSE.
  * @return void
  */
-function cbisimport_queue_update($id, $updated) {
+function cbisimport_queue_update($id, $updated, $archive = FALSE) {
   $queued_updated = db_result(db_query('SELECT updated FROM {cbisimport_queue} WHERE pid = %d', array(
     ':pid' => $id,
   )));
@@ -502,6 +526,7 @@ function cbisimport_queue_update($id, $updated) {
     'pid' => $id,
     'updated' => $updated,
     'fail_count' => 0,
+		'archive' => $archive,
   );
   // Only queue a update if we don't already have it queued or if the updated
   // timestamp is later than what's already in the queue.
@@ -801,6 +826,7 @@ function cbisimport_product_write($product, $update=FALSE) {
   $entry = array(
     'pid' => $product['Id'],
     'language' => $product['LanguageId'],
+		'archived' => ($product['Status'] !== 'Active'),
     'name' => $product['Name'],
     'template' => $product['TemplateId'],
     'updated' => $product['PublishedDate'], // TODO: Exchange as soon as the API exposes mod-time.

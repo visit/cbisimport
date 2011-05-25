@@ -27,6 +27,13 @@ function cbisimport_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
       ),
+			'archive' => array(
+				'description' => t('If this is a archive/unpublish update or not.'),
+        'type' => 'int',
+				'default' => 0,
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+			),
       'fail_count' => array(
         'description' => t('The number of times that fetching has failed.'),
         'type' => 'int',
@@ -93,6 +100,13 @@ function cbisimport_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE,
       ),
+			'archived' => array(
+				'description' => t('If the product is archived or not.'),
+		    'type' => 'int',
+				'default' => 0,
+		    'unsigned' => TRUE,
+		    'not null' => TRUE,
+			),
       'language' => array(
         'description' => t('The product language.'),
         'type' => 'int',
@@ -329,4 +343,26 @@ function cbisimport_update_6002() {
   ));
 
   return $ret;
+}
+
+function cbisimport_update_6003() {
+	$ret = array();
+
+	db_add_field($ret, 'cbisimport_queue', 'archive', array(
+		'description' => t('If this is a archive/unpublish update or not.'),
+    'type' => 'int',
+		'default' => 0,
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+	));
+
+	db_add_field($ret, 'cbisimport_product', 'archived', array(
+		'description' => t('If the product is archived or not.'),
+    'type' => 'int',
+		'default' => 0,
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+	));
+
+	return $ret;
 }
