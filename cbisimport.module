@@ -204,6 +204,9 @@ function cbisimport_cron($debug = FALSE) {
     // Update transactions created last cron with accurate node-data
     // This can't be done during the previous cron due to
     // Drupal's cache funkyness.
+    if ($debug) {
+      $output .= "Updating transaction logs\n";
+    }
     $res = db_query_range("SELECT * FROM {cbisimport_transactions} WHERE has_load_state = 0", 0, 50);
     while ($t = db_fetch_array($res)) {
       // Load old transaction and restore states
@@ -233,11 +236,21 @@ function cbisimport_cron($debug = FALSE) {
     }
 
     // Load queue and import products
+    if ($debug) {
+      $output .= "Processing import queue\n";
+    }
     $res = db_query_range("SELECT * FROM {cbisimport_queue} WHERE fail_count=0", 0, 10);
     $success = array();
     $fail = array();
     while ($qi = db_fetch_array($res)) {
+      if ($debug) {
+        $output .= "Processing {$qi['pid']}\n";
+      }
 			if ($qi['archive']) {
+			  if ($debug) {
+          $output .= "Archiving {$qi['pid']}\n";
+        }
+
 				// Mark product as archived.
 				db_query('UPDATE {cbisimport_product} SET archived = 1 WHERE pid = %d', array(
 					':pid' => $qi['pid'],
@@ -266,6 +279,9 @@ function cbisimport_cron($debug = FALSE) {
 
 	        // Product found
 	        if ($product && !empty($product['Name']) && $product['Status'] == 'Active') {
+	          if ($debug) {
+	            $output .= "Product {$product['Id']} is {$product['Name']}\n";
+	          }
 	          if (!$import) {
 	            // The import can only be false on first language iteration.
 	            foreach (cbisimport_array($product['Categories']->Category) as $category) {
@@ -294,6 +310,9 @@ function cbisimport_cron($debug = FALSE) {
 	        }
 	        // Old product, unpublish it
 	        else if ($product['Status'] !== 'Active') {
+	          if ($debug) {
+	            $output .= "Archiving {$product['Id']}\n";
+	          }
 						// Mark product as archived.
 						db_query('UPDATE {cbisimport_product} SET archived = 1 WHERE pid = %d', array(
 							':pid' => $product['Id'],
