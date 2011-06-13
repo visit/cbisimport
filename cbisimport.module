@@ -256,6 +256,7 @@ function cbisimport_cron($debug = FALSE) {
 					':pid' => $qi['pid'],
 				));
 				module_invoke('cbisimport_unpublishing_product', $qi['pid']);
+				$success[] = $qi['pid'];
 			}
 			else {
 				$languages = cbisimport_available_languages();
