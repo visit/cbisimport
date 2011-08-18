@@ -220,11 +220,34 @@ function cbisnode_api_update_info($node_data, $info) {
 }
 
 /**
+ * Goes through a batch of archived products that have nodes that still
+ * are published and invokes cbisnode_cbisimport_unpublishing_product()
+ * for each of them.
+ *
+ * @param int $batch_size
+ *  Optional. Defaults to 20.
+ * @return void
+ */
+function cbisnode_unpublish_nodes_for_archived_products($batch_size = 20) {
+  $res = db_query("SELECT DISTINCT p.pid FROM cbisimport_product AS p
+      INNER JOIN `cbisimport_product_node` AS pn ON pn.pid = p.pid
+      INNER JOIN node AS n ON pn.nid = n.nid
+      WHERE p.archived = 1
+      AND n.status = 1
+    LIMIT %d", array(
+      ':limit' => $batch_size,
+    ));
+  while ($p = db_fetch_object($res)) {
+    cbisnode_cbisimport_unpublishing_product($p->pid);
+  }
+}
+
+/**
  * Implementation of hook_cbisimport_unpublishing_product().
  */
 function cbisnode_cbisimport_unpublishing_product($product_id) {
   // Unpublish all nodes mapped to the product.
-	$res = db_query("SELECT nid FROM {cbisimport_product_node} WHERE pid = %d", array(
+	$res = db_query("SELECT DISTINCT nid FROM {cbisimport_product_node} WHERE pid = %d", array(
 		':pid' => $product_id,
 	));
 	while ($map = db_fetch_object($res)) {
@@ -252,4 +275,5 @@ function cbisnode_cron() {
   //   module_invoke('cbisnode_node_delete', $old);
   //   node_delete($old->nid);
   // }
+  cbisnode_unpublish_nodes_for_archived_products(20);
 }
