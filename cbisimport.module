@@ -211,6 +211,7 @@ function cbisimport_check_for_updates($last_update, $debug, &$output) {
   // remaining products will be the actual archived products.
   $res = db_query("SELECT DISTINCT(pid) FROM {cbisimport_product} WHERE archived = 0");
   $archived_products = array();
+  $active_products = array();
   while ($prod = db_fetch_object($res)) {
     $archived_products[$prod->pid] = TRUE;
   }
@@ -222,6 +223,7 @@ function cbisimport_check_for_updates($last_update, $debug, &$output) {
   $since = $last_update = variable_get('cbisimport_last_updated', 0);
   foreach ($update_status as $id => $updated) {
     unset($archived_products[$id]);
+    $active_products[] = $id;
     if ($updated > $since) {
       $last_update = max($updated, $last_update);
       $updates[$id] = $updated;
@@ -233,6 +235,14 @@ function cbisimport_check_for_updates($last_update, $debug, &$output) {
   foreach ($archived_products as $id => $archived) {
     cbisimport_queue_update($id, time(), TRUE);
   }
+
+  // Hotfix to republish.
+  $placeholders = db_placeholders($active_products);
+  watchdog('cbisimport', 'Ensuring that the following products are active: @products', array(
+      '@products' => join($active_products, ', '),
+    ), WATCHDOG_NOTICE);
+  db_query("UPDATE cbisimport_product SET archived=0
+    WHERE archived = 1 AND pid IN({$placeholders})", $active_products);
 
   variable_set('cbisimport_last_updated', $last_update);
 }
