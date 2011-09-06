@@ -232,9 +232,9 @@ function cbisimport_check_for_updates($last_update, $debug, &$output) {
   }
 
   // Queue archive updates.
-  foreach ($archived_products as $id => $archived) {
-    cbisimport_queue_update($id, time(), TRUE);
-  }
+  // foreach ($archived_products as $id => $archived) {
+  //   cbisimport_queue_update($id, time(), TRUE);
+  // }
 
   // Hotfix to republish.
   $placeholders = db_placeholders($active_products);
@@ -270,16 +270,16 @@ function cbisimport_process_queue($batch_size, $debug, &$output) {
       $output .= "Processing {$qi['pid']}\n";
     }
     if ($qi['archive']) {
-      if ($debug) {
-        $output .= "Archiving {$qi['pid']}\n";
-      }
-
-      // Mark product as archived.
-      db_query('UPDATE {cbisimport_product} SET archived = 1 WHERE pid = %d', array(
-        ':pid' => $qi['pid'],
-      ));
-      module_invoke('cbisimport_unpublishing_product', $qi['pid']);
-      $success[] = $qi['pid'];
+      // if ($debug) {
+      //   $output .= "Archiving {$qi['pid']}\n";
+      // }
+      // 
+      // // Mark product as archived.
+      // db_query('UPDATE {cbisimport_product} SET archived = 1 WHERE pid = %d', array(
+      //   ':pid' => $qi['pid'],
+      // ));
+      // module_invoke('cbisimport_unpublishing_product', $qi['pid']);
+      // $success[] = $qi['pid'];
     }
     else {
       $languages = cbisimport_available_languages();
