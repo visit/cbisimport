@@ -275,5 +275,5 @@ function cbisnode_cron() {
   //   module_invoke('cbisnode_node_delete', $old);
   //   node_delete($old->nid);
   // }
-  cbisnode_unpublish_nodes_for_archived_products(20);
+  // cbisnode_unpublish_nodes_for_archived_products(20);
 }

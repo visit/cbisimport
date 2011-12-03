@@ -167,19 +167,24 @@ function cbisimport_cron($debug = FALSE) {
   // The number of items in the queue that should be processed at once.
   $batch_size = 10;
 
+  watchdog('cbisimport', 'Running cbis cron', array(), WATCHDOG_NOTICE);
+
   // Once a hour we do a product update status check. All effects
   // are queued. If a product has been updated the update is queued
   // and if a product has been archived the archiving is queued.
   $last_update = variable_get('cbisimport_last_update_check', 0);
   if ($last_update < strtotime('-1 hour')) {
+    watchdog('cbisimport', 'Checking for updates', array(), WATCHDOG_NOTICE);
     cbisimport_check_for_updates($last_update, $debug, $output);
   }
   // If it's not time to check for updates we'll start working on the import queue.
   else {
+    watchdog('cbisimport', 'Updating transaction logs', array(), WATCHDOG_NOTICE);
     // Update transaction logs with loaded node info.
     cbisimport_update_transaction_logs($debug, $output);
 
     // Load queue and import products
+    watchdog('cbisimport', 'Preprocessing import queue', array(), WATCHDOG_NOTICE);
     cbisimport_process_queue($batch_size, $debug, $output);
   }
 
@@ -204,6 +209,7 @@ function cbisimport_check_for_updates($last_update, $debug, &$output) {
   if ($debug) {
     $output .= "Checking update status\n";
   }
+  watchdog('cbisimport', 'Processing import queue', array(), WATCHDOG_NOTICE);
   variable_set('cbisimport_last_update_check', time());
 
   // Get all our known activt products and place them in the archived array.
@@ -262,13 +268,14 @@ function cbisimport_process_queue($batch_size, $debug, &$output) {
   if ($debug) {
     $output .= "Processing import queue\n";
   }
-  $res = db_query_range("SELECT * FROM {cbisimport_queue} WHERE fail_count=0", 0, $batch_size);
+  $res = db_query_range("SELECT * FROM {cbisimport_queue} WHERE fail_count=0 AND archive=0", 0, $batch_size);
   $success = array();
   $fail = array();
   while ($qi = db_fetch_array($res)) {
     if ($debug) {
       $output .= "Processing {$qi['pid']}\n";
     }
+    watchdog('cbisimport', 'Processing !product', array('!product'=>json_encode($qi)), WATCHDOG_NOTICE);
     if ($qi['archive']) {
       // if ($debug) {
       //   $output .= "Archiving {$qi['pid']}\n";
@@ -283,6 +290,8 @@ function cbisimport_process_queue($batch_size, $debug, &$output) {
     }
     else {
       $languages = cbisimport_available_languages();
+
+      watchdog('cbisimport', 'Processing product !pid', array('!pid'=>$qi['pid']), WATCHDOG_NOTICE);
 
       $import = FALSE;
       $fine = TRUE;
